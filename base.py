@@ -75,9 +75,11 @@ def process_data(raw_data, data_type):
             'city_code': 'city_iata_code',
             'country_code': 'country_code'
         })
+        # Обработка координат
         if 'coordinates' in df.columns:
-            df['latitude'] = df['coordinates'].apply(lambda x: x.get('lat'))
-            df['longitude'] = df['coordinates'].apply(lambda x: x.get('lon'))
+            df['latitude'] = df['coordinates'].apply(lambda x: x['lat'] if isinstance(x, dict) else None)
+            df['longitude'] = df['coordinates'].apply(lambda x: x['lon'] if isinstance(x, dict) else None)
+            df = df.drop('coordinates', axis=1)  # Удаляем оригинальный словарь
 
     elif data_type == "cities":
         df = df.rename(columns={
@@ -86,26 +88,20 @@ def process_data(raw_data, data_type):
             'country_code': 'country_code'
         })
         if 'coordinates' in df.columns:
-            df['latitude'] = df['coordinates'].apply(lambda x: x.get('lat'))
-            df['longitude'] = df['coordinates'].apply(lambda x: x.get('lon'))
+            df['latitude'] = df['coordinates'].apply(lambda x: x['lat'] if isinstance(x, dict) else None)
+            df['longitude'] = df['coordinates'].apply(lambda x: x['lon'] if isinstance(x, dict) else None)
+            df = df.drop('coordinates', axis=1)
 
     elif data_type == "countries":
         df = df.rename(columns={
             'code': 'country_code',
             'name': 'country_name'
         })
-
-    elif data_type == "flights":
-        df = df.rename(columns={
-            'origin': 'origin_iata',
-            'destination': 'destination_iata',
-            'departure_at': 'departure_datetime',
-            'return_at': 'return_datetime',
-            'price': 'price_rub'
-        })
-        if 'departure_at' in df.columns:
-            df['departure_datetime'] = pd.to_datetime(df['departure_at'])
-            df['departure_date'] = df['departure_datetime'].dt.date
+        # Для стран тоже может быть словарь координат
+        if 'coordinates' in df.columns:
+            df['latitude'] = df['coordinates'].apply(lambda x: x['lat'] if isinstance(x, dict) else None)
+            df['longitude'] = df['coordinates'].apply(lambda x: x['lon'] if isinstance(x, dict) else None)
+            df = df.drop('coordinates', axis=1)
 
     return df
 
@@ -125,6 +121,12 @@ def save_to_db(df, conn, table_name):
         print(f"Нет данных для сохранения в таблицу {table_name}")
         return
 
+    # Проверяем, есть ли словари в данных
+    for col in df.columns:
+        if df[col].apply(lambda x: isinstance(x, (dict, list))).any():
+            print(f"Предупреждение: столбец {col} содержит словари/списки и будет преобразован")
+            df[col] = df[col].astype(str)  # Конвертируем в строку
+
     try:
         df.to_sql(table_name, conn, if_exists='replace', index=False)
         print(f"Данные сохранены в таблицу {table_name}")
@@ -138,17 +140,34 @@ def update_database():
     if not conn:
         return
 
-    # получаем и обрабатываем данные
+    # Получаем и обрабатываем данные
     airports_df = process_data(get_airports_data(), "airports")
     cities_df = process_data(get_cities_data(), "cities")
     countries_df = process_data(get_countries_data(), "countries")
 
-    # сохраняем данные в базу
+    # Сохраняем данные в базу
     save_to_db(airports_df, conn, "airports")
     save_to_db(cities_df, conn, "cities")
     save_to_db(countries_df, conn, "countries")
 
-    # создаем индексы для ускорения запросов
+    # Создаем таблицу flights, если она не существует
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS flights (
+            origin_iata TEXT,
+            destination_iata TEXT,
+            departure_datetime TEXT,
+            return_datetime TEXT,
+            price_rub REAL,
+            extracted_at TEXT
+        )
+        """)
+        conn.commit()
+    except Error as e:
+        print(f"Ошибка при создании таблицы flights: {e}")
+
+    # Создаем индексы
     try:
         cursor = conn.cursor()
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_airports_city ON airports(city_iata_code)")
@@ -163,3 +182,11 @@ def update_database():
 if __name__ == "__main__":
     # первоначальное заполнение базы данных
     update_database()
+
+def show_airports_sample(limit=5):
+    conn = sqlite3.connect(DB_FILE)
+    query = f"SELECT * FROM airports LIMIT {limit}"
+    df = pd.read_sql(query, conn)
+    conn.close()
+    print(f"\nПервые {limit} записей из таблицы airports:")
+    print(df.to_string(index=False))
