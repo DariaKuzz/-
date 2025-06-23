@@ -6,7 +6,7 @@ from datetime import datetime
 import time
 
 # конфигурационные параметры
-API_TOKEN = ""  # токен с сайта https://www.travelpayouts.com/ru/
+API_TOKEN = "ac8ce1565a9125a5e14654bec272189c"  # токен с сайта https://www.travelpayouts.com/ru/
 DB_FILE = "aviasales_data.db"
 FLIGHTS_API_URL = "https://api.travelpayouts.com/aviasales/v3/prices_for_dates"
 
