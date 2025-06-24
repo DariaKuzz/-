@@ -96,7 +96,7 @@ def train_and_predict(df, origin, destination):
     X = df[['days_since_start']]
     y = df['min_price']
 
-    # Выделение бучающей выборки
+    # Выделение обучающей выборки
     X_train, y_train = train_test_split(X, y, test_size=0.2, random_state=42)
 
     # Выбор модели (линейная регрессия с полиномиальными признаками)
