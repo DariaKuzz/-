@@ -1,8 +1,6 @@
 import pandas as pd
 from sqlite3 import Error
-from datetime import datetime, timedelta
-import time
-import numpy as np
+from datetime import timedelta
 import statsmodels.api as sm
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
@@ -48,6 +46,16 @@ def statistical_analysis(df):
         return
 
     # Анализ временных рядов.
+    # Если данных мало, выводим только график
+    if len(df) < 10:
+        print("Мало данных для полного анализа (требуется ≥10), строим только график цен.")
+        plt.figure(figsize=(12, 4))
+        plt.plot(df['departure_datetime'], df['min_price'], 'o-')
+        plt.title("Динамика цен (мало данных для сезонного анализа)")
+        plt.show()
+        return
+    
+    # Если данных достаточно
     try:
         decomposition = sm.tsa.seasonal_decompose(df.set_index('departure_datetime')['min_price'], model='additive', period=30)
         plt.figure(figsize=(12, 8))
