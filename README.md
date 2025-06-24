@@ -91,3 +91,4 @@ MOW<br />
 *  scikit-learn Documentation: https://scikit-learn.org/stable/
 *  statsmodels Documentation: https://www.statsmodels.org/stable/
 *  matplotlib Documentation: https://matplotlib.org/stable/contents.html
+*  telebot Documentation: https://pytba.readthedocs.io/ru/latest/index.html
